@@ -687,7 +687,10 @@ static av_cold int mediacodec_init_decoder(AVCodecContext *avctx,
 
     if (dovi && dovi->dv_profile <= 10) {
         codec_mime = FF_MEDIACODEC_MIME_DOLBY_VISION;
-        format_profile = 1 << dovi->dv_profile;
+        if (dovi->dv_profile == 7)
+            format_profile = 1 << 8;
+        else
+            format_profile = 1 << dovi->dv_profile;
         native_dovi = true;
         av_log(avctx, AV_LOG_INFO,
                "Dolby Vision profile %u detected, requesting a "
