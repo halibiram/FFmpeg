@@ -3381,7 +3381,6 @@ static int matroska_parse_dovi_streams(AVFormatContext *s)
                                             st->codecpar->nb_coded_side_data,
                                             AV_PKT_DATA_HEVC_CONF);
 
-                // hvcE marks an interleaved BL+EL track, not a separate EL.
                 if (hvce)
                     continue;
                 /* bl_present_flag is not checked, because the files in the
@@ -4373,7 +4372,9 @@ static int matroska_parse_block(MatroskaDemuxContext *matroska, AVBufferRef *buf
     }
 
     if (!block_duration && trust_default_duration)
-        block_duration = track->default_duration * laces / matroska->time_scale;
+        block_duration = av_rescale_q(track->default_duration * laces,
+                                      (AVRational) { 1, 1000000000 },
+                                      st->time_base);
 
     if (cluster_time != (uint64_t)-1 && (block_time >= 0 || cluster_time >= -block_time))
         track->end_timecode =
