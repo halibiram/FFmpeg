@@ -30,8 +30,9 @@
 #include "libavutil/log.h"
 #include "libavutil/pixfmt.h"
 #include "libavutil/time.h"
-#include "libavutil/timestamp.h"
 #include "libavutil/channel_layout.h"
+#include "libavutil/dovi_meta.h"
+#include "libavutil/intreadwrite.h"
 
 #include "avcodec.h"
 #include "decode.h"
@@ -769,6 +770,40 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
         if (!s->surface && user_ctx && user_ctx->surface) {
             s->surface = ff_mediacodec_surface_ref(user_ctx->surface, NULL, avctx);
             av_log(avctx, AV_LOG_INFO, "Using surface %p\n", s->surface);
+        }
+    }
+
+    if (s->custom_codec_name && s->custom_codec_name[0]) {
+        s->codec_name = av_strdup(s->custom_codec_name);
+        s->codec = ff_AMediaCodec_createCodecByName(s->codec_name, s->use_ndk_codec);
+        if (s->codec) {
+            av_log(avctx, AV_LOG_INFO, "MediaCodec created explicitly by name: %s\n", s->codec_name);
+            return 0;
+        }
+        av_log(avctx, AV_LOG_WARNING, "Failed to create MediaCodec by name %s, falling back to type lookup\n", s->codec_name);
+        av_freep(&s->codec_name);
+    }
+
+    if (avctx->codec_id == AV_CODEC_ID_HEVC) {
+        int is_dovi = (avctx->codec_tag == MKTAG('d','v','h','e') ||
+                       avctx->codec_tag == MKTAG('d','v','h','1') ||
+                       avctx->codec_tag == MKTAG('d','v','a','1') ||
+                       avctx->codec_tag == MKTAG('d','a','v','1'));
+        if (!is_dovi && av_packet_side_data_get(avctx->coded_side_data, avctx->nb_coded_side_data, AV_PKT_DATA_DOVI_CONF)) {
+            is_dovi = 1;
+        }
+        if (is_dovi) {
+            const char *dovi_mime = "video/dolby-vision";
+            s->codec_name = ff_AMediaCodecList_getCodecNameByType(dovi_mime, -1, 0, avctx);
+            if (s->codec_name) {
+                av_log(avctx, AV_LOG_INFO, "Dolby Vision detected, using DV decoder %s\n", s->codec_name);
+                s->codec = ff_AMediaCodec_createCodecByName(s->codec_name, s->use_ndk_codec);
+                if (s->codec) {
+                    ff_AMediaFormat_setString(format, "mime", dovi_mime);
+                    return 0;
+                }
+                av_freep(&s->codec_name);
+            }
         }
     }
 

@@ -57,6 +57,7 @@ typedef struct MediaCodecContext {
     int amlogic_mpeg2_api23_workaround;
 
     int use_ndk_codec;
+    char *codec_name;
     // Ref. MediaFormat KEY_OPERATING_RATE
     int operating_rate;
 } MediaCodecContext;
@@ -450,6 +451,7 @@ static av_cold int mediacodec_decode_init(AVCodecContext *avctx)
 
     s->ctx->delay_flush = s->delay_flush;
     s->ctx->use_ndk_codec = s->use_ndk_codec;
+    s->ctx->custom_codec_name = s->codec_name;
 
     if ((ret = ff_mediacodec_dec_init(avctx, s->ctx, codec_mime, format)) < 0) {
         s->ctx = NULL;
@@ -598,6 +600,8 @@ static const AVOption ff_mediacodec_vdec_options[] = {
                      OFFSET(delay_flush), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, VD },
     { "ndk_codec", "Use MediaCodec from NDK",
                    OFFSET(use_ndk_codec), AV_OPT_TYPE_BOOL, {.i64 = -1}, -1, 1, VD },
+    { "codec_name", "Codec name to use for MediaCodec",
+                    OFFSET(codec_name), AV_OPT_TYPE_STRING, {.str = NULL}, 0, 0, VD },
     { "operating_rate", "The desired operating rate that the codec will need to operate at, zero for unspecified",
             OFFSET(operating_rate), AV_OPT_TYPE_INT, {.i64 = 0}, 0, INT_MAX, VD },
     { NULL }
